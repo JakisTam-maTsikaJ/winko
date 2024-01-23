@@ -1,0 +1,137 @@
+---
+title: , Untitled, 
+format: html
+editor: visual
+---
+
+```{r}
+library(cluster)
+library(dplyr)
+library(factoextra)
+library(plotly)
+library(MVN)
+library(tidyr)
+library(ggplot2)
+library(rstatix)
+library(corrplot)
+```
+
+```{r}
+dane = read.csv('wino.csv')
+dane_do_klastrowania = dane %>% 
+  dplyr::select(-czerwone)
+
+dane_do_klastrowania = scale(dane_do_klastrowania) %>% as.data.frame()
+dane_do_klastrowania %>% head()
+```
+
+```{r}
+set.seed(123)
+probka_losowa = sample.int(nrow(dane_do_klastrowania), 1000)
+
+
+#wynik = agnes(dane_do_klastrowania[probka_losowa,], 
+#              metric = 'manhattna', method = 'ward')
+drzewo = fviz_dend(wynik, k = 3, show_labels = F)
+drzewo
+```
+
+```{r}
+klastry = cutree(wynik, k = 3)
+
+fviz_cluster(list(data = dane_do_klastrowania[probka_losowa,], cluster = klastry))
+```
+
+```{r}
+dane$czerwone = dane$czerwone %>% as.vector()
+
+model_pca = prcomp(dane_do_klastrowania[probka_losowa,]
+                   , center = T, scale. = T)
+
+df_PCA = data.frame(PC1 = model_pca$x[,1], PC2 = model_pca$x[,2], 
+                    PC3 = model_pca$x[,3])
+
+nowa_ramka = dane_do_klastrowania[probka_losowa,]
+
+nowa_ramka$klastry = as.factor(klastry)
+
+nrow(nowa_ramka)
+nowa_ramka %>% head()
+```
+
+```{r}
+plot_ly(x = ~ df_PCA$PC1, y = ~ df_PCA$PC2, z = ~ df_PCA$PC3,
+        color = ~ nowa_ramka$klastry)
+```
+
+Sprawdźmy manovę dzieląc dane na klastry, ze względu na co się różnią???
+
+```{r}
+dane_do_box_plot = nowa_ramka %>%
+  select(-klastry) %>%
+  pivot_longer(kwasowość:jakość)
+#dane_do_box_plot
+
+ggplot(dane_do_box_plot, aes(x = name, y = value)) + geom_boxplot()
+```
+
+```{r}
+ods = nowa_ramka[,-ncol(nowa_ramka)] %>% mahalanobis_distance()
+
+ods$klastry = nowa_ramka$klastry
+
+bez_ods = ods %>%
+  dplyr::filter(is.outlier == F)
+
+nowa_ramka_bez_odstajcych = bez_ods %>%
+  select(-c(mahal.dist, is.outlier))
+
+nowa_ramka_bez_odstajcych
+
+
+```
+
+```{r}
+macierz_kor = cor(nowa_ramka_bez_odstajcych[,-ncol(nowa_ramka_bez_odstajcych)])
+diag(macierz_kor) = 0
+macierz_kor %>% max()
+```
+
+```{r}
+nowa_ramka_bez_odstajcych[,-ncol(nowa_ramka_bez_odstajcych)]
+```
+
+```{r}
+box_m(nowa_ramka_bez_odstajcych[,-ncol(nowa_ramka_bez_odstajcych)], 
+      nowa_ramka_bez_odstajcych$klastry)
+```
+
+Brak jednorodności macierzy kowariancji
+
+```{r}
+nowa_ramka_bez_odstajcych %>%
+  group_by(klastry) %>%
+  summarise(n())
+```
+
+Ale i tak przeprowadze test
+
+```{r}
+mmm = lm(cbind(kwasowość, lotna.kwasowość, kwas.cytrynowy, pozostały.cukier, wolne.chlorki, 
+         dwutlenek.siarki, dwutlenek.siarki.całkowity, gęstość, pH, siarczany, alkohol, 
+         jakość) ~ klastry, data = nowa_ramka_bez_odstajcych)
+Manova(mmm, test.statistic = 'Pillai')
+```
+
+Jest istotna różnica pomiędzy klastrami
+
+```{r}
+nowa_ramka_bez_odstajcych %>%
+  pivot_longer(kwasowość:jakość) %>%
+  group_by(name) %>%
+  welch_anova_test(value ~ klastry)
+```
+
+chyba różnią się pod każdym względem?
+
+\#################################################################################################
