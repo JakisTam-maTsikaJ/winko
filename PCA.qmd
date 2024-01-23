@@ -1,0 +1,41 @@
+---
+title: "Untitled"
+format: html
+editor: visual
+---
+
+```{r}
+library(dplyr)
+library(factoextra)
+library(plotly)
+
+```
+
+```{r}
+rm(list = ls())
+
+dane = read.csv('wino.csv')
+dane$czerwone = dane$czerwone %>% as.vector()
+
+model_pca = prcomp(dane[,-ncol(dane)], center = T, scale. = T)
+
+fviz_contrib(model_pca,'var')
+```
+
+```{r}
+fviz_screeplot(model_pca)
+```
+
+```{r}
+model_pca %>% summary()
+```
+
+```{r}
+df_PCA = data.frame(PC1 = model_pca$x[,1], PC2 = model_pca$x[,2], 
+                    PC3 = model_pca$x[,3])
+
+```
+
+```{r}
+plot_ly(x = ~ PC1, y = ~ PC2, z = ~ PC3, data = df_PCA, color = dane$jakość)
+```
