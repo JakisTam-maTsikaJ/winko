@@ -1,0 +1,51 @@
+---
+title: "Untitled"
+format: html
+editor: visual
+---
+
+```{r}
+library(readxl)
+library(dplyr)
+library(MASS)
+```
+
+```{r}
+rm(list = ls())
+dane = read.csv('wino.csv')
+dane$czerwone = dane$czerwone %>% as.factor()
+
+dane
+```
+
+```{r}
+set.seed(123)
+probka = sample.int(nrow(dane), ceiling(nrow(dane)*0.7), replace = F)
+probka = sort(probka)
+
+dane$id = 1:nrow(dane)
+
+ktore_sa = dane$id %in% probka
+ktore_NIE_sa = !ktore_sa
+
+trening = dane[ktore_sa,]
+testowy = dane[ktore_NIE_sa,]
+
+dane = dane %>% 
+  dplyr::select(-id)
+
+trening = trening %>% 
+  dplyr::select(-id)
+
+testowy = testowy %>% 
+  dplyr::select(-id)
+
+
+
+
+biale_czerwone_lda = lda(czerwone ~ ., data = trening)
+
+predykcja = predict(biale_czerwone_lda, testowy[,-ncol(testowy)])
+
+sum(predykcja$class == testowy$czerwone)/length(testowy$czerwone)
+```
