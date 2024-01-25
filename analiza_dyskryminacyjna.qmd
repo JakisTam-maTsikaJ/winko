@@ -11,28 +11,30 @@ library(MASS)
 ```
 
 ```{r}
-rm(list = ls())
+#rm(list = ls())
 dane = read.csv('wino.csv')
 dane$czerwone = dane$czerwone %>% as.factor()
 
-dane
+dane %>% head()
+
+###TUTAJ POBIERAM DANE I ZAMIENIAM CZY JEST CZERWONE NA FAKTOR
 ```
 
 ```{r}
 set.seed(123)
 probka = sample.int(nrow(dane), ceiling(nrow(dane)*0.7), replace = F)
-probka = sort(probka)
+probka = sort(probka) ###WYBRAŁEM PRÓBKĘ DO STWROZENIA ZESTAWU UCZĄCEGO
 
 dane$id = 1:nrow(dane)
 
 ktore_sa = dane$id %in% probka
-ktore_NIE_sa = !ktore_sa
+ktore_NIE_sa = !ktore_sa  ### RESZTA ZBIORU BĘDZIE TESTOWYMI
 
-trening = dane[ktore_sa,]
-testowy = dane[ktore_NIE_sa,]
+trening = dane[ktore_sa,]  #UTWORZENIE ZBIORU TRENINGOWEGO
+testowy = dane[ktore_NIE_sa,] #UTWORZENIE ZBIORY TESTOWEGO
 
 dane = dane %>% 
-  dplyr::select(-id)
+  dplyr::select(-id)  
 
 trening = trening %>% 
   dplyr::select(-id)
@@ -40,12 +42,35 @@ trening = trening %>%
 testowy = testowy %>% 
   dplyr::select(-id)
 
+#POZBYWAM SIĘ NIEPOTRZEBNYCH KOLUMN
 
 
+biale_czerwone_lda = lda(czerwone ~ ., data = trening)  ###UCZĘ MODEL
 
-biale_czerwone_lda = lda(czerwone ~ ., data = trening)
+predykcja = predict(biale_czerwone_lda, testowy[,-ncol(testowy)]) #JAK SOBIE RADZI?
 
-predykcja = predict(biale_czerwone_lda, testowy[,-ncol(testowy)])
+sum(predykcja$class == testowy$czerwone)/length(testowy$czerwone) 
+#PROCENT DOBRZE PRZEWIDZIANYCH
 
-sum(predykcja$class == testowy$czerwone)/length(testowy$czerwone)
+
 ```
+
+Model przewidział dobrze aż 99.6% rodzajów wina (białe czy czerwone)
+
+```{r}
+biale_czerwone_lda 
+```
+
+Zdecydowanie najlepiej dyskryminuje zmienna gęstość, lotna.kwasowość i wolne.chlorki
+
+```{r}
+model_test = lda(czerwone ~ gęstość + lotna.kwasowość + wolne.chlorki,
+                 data = dane)
+
+
+przew = predict(model_test, testowy[,-ncol(testowy)])
+
+sum(przew$class == testowy$czerwone)/nrow(testowy)
+```
+
+Jednak tworząc model tylko z tymi zmiennymi nie otrzymujemy tak dobrych efektów jak w przypadku użycia wszystkich zmiennych
